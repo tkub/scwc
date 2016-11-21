@@ -3,9 +3,9 @@ package jp.ac.gakushuin.cc.tk.scwc
 /**
  * sCWC: Feature Selection Algorithm CWC for sparse data set
  * 
- * @author Tetsuji Kuboyama (ori-scwc@tk.cc.gakushuin.ac.jp)
+ * @author Tetsuji Kuboyama <ori-scwc@tk.cc.gakushuin.ac.jp>
  * @version 0.8.0, 2016-11-20
- * 
+ * @license http://www.apache.org/licenses/LICENSE-2.0 Apache-2.0
  */
 
 import scopt.OptionParser
@@ -170,7 +170,6 @@ object Main {
         val vals = Seq(MI,SU,MCC).map(m => f"${data.sm(m)(f)}%6.3f").mkString(" ")
         dataIO.logging(vals+" "+f.name+"\n")
       }
-
       dataIO.loggingClose
     }
   }
