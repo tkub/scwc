@@ -50,11 +50,11 @@ object Main {
       head("scwc", VERSION)
       help("help").text("prints this usage text")
 
-      arg[String]("input_file").action{ (x, c) =>
+      arg[String]("inputfile").action{ (x, c) =>
         c.copy(inputFileName = x)
       }.text("input file in the ARFF/CSV/LIBSVM format")
 
-      arg[String]("output_file").optional.action{ (x, c) =>
+      arg[String]("outputfile").optional.action{ (x, c) =>
         c.copy(outputFileName = x)
       }.text("output file with extension {arff, csv, libsvm}")
 
@@ -236,9 +236,12 @@ class DataIO(config: Config) {
         sys.exit(1)
     }
     println(s"scwc: ${outputFileName}: output selected features")
+
     saver.setInstances(newInstances)
     saver.setFile(outputFile)
     saver.writeBatch
+
+    sys.exit(0)
   }
 
   private def readFile(inputFile: File, inputFileExt: String) = {
