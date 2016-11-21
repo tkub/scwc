@@ -7,9 +7,9 @@ To build `scwc.jar` file in the `./bin` directory, run
 ```sh
 $ sbt assembly
 ```
-Command `bin\scwc` accepts a number of command line options.
+Command `bin/scwc` accepts a number of command line options.
 ```sh
-$ bin\scwc --help
+$ bin/scwc --help
 scwc 0.8.0
 Usage: scwc [options] inputfile [outputfile]
 
