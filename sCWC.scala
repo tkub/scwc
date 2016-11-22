@@ -171,6 +171,8 @@ object Main {
       dataIO.loggingClose
 
       dataIO.output(selected, table, data)
+
+      sys.exit(0)
     }
   }
 }
@@ -241,7 +243,6 @@ class DataIO(config: Config) {
     saver.setFile(outputFile)
     saver.writeBatch
 
-    sys.exit(0)
   }
 
   private def readFile(inputFile: File, inputFileExt: String) = {
