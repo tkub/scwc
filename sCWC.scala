@@ -52,7 +52,7 @@ object Main {
 
       arg[String]("inputfile").action{ (x, c) =>
         c.copy(inputFileName = x)
-      }.text("input file in the ARFF/CSV/LIBSVM format")
+      }.text("input file in the arff/csv/libsvm format")
 
       arg[String]("outputfile").optional.action{ (x, c) =>
         c.copy(outputFileName = x)
@@ -141,8 +141,6 @@ object Main {
         println
         println(selected.map{data.sortedFeatures(_).name}.mkString("{",",","}"))
       }
-      dataIO.output(selected, table, data)
-
       dataIO.logging("#\n### Data stats\n")
       dataIO.logging(s"# Number of instances: ${table.nRows}\n")
       dataIO.logging(s"# Number of instances after aggregation: ")
@@ -171,6 +169,8 @@ object Main {
         dataIO.logging(vals+" "+f.name+"\n")
       }
       dataIO.loggingClose
+
+      dataIO.output(selected, table, data)
     }
   }
 }
