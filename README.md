@@ -22,7 +22,7 @@ Usage: scwc [options] inputfile [outputfile]
   -o, --overwrite         overwrite output file
   -r, --remove <range>    attribute indices to remove e.g.) 1,3-5,8
 ```
-It requires an input file in the dense/sparse ARFF, CSV, and LIBSVM
+It requires an input file in the dense/sparse ARFF, CSV, or LIBSVM
 formats. Unless an output file is specified, it creates a new data
 file in the same format as the input file by removing the unselected
 features from the input file.
@@ -31,7 +31,7 @@ $ bin/scwc -v data/sparse.arff
 ```
 In the above example, `data/sparse.out.arff` is created.
 When an output file is specified, the output format is given by
-its file extension (now `arff`, `csv`, and `libsvm` are supported).
+its file extension (now `arff`, `csv`, and `libsvm` are available).
 ```sh
 $ bin/scwc -s su -l data/dense.arff data/dense.csv
 ```

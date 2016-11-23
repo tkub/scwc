@@ -10,8 +10,6 @@ package jp.ac.gakushuin.cc.tk.scwc
 
 import scopt.OptionParser
 import scala.collection.mutable.{Set,OpenHashMap,ArrayBuffer,ListBuffer}
-import scala.util.Sorting.{quickSort,stableSort}
-import scala.runtime.ScalaRunTime.stringOf
 import scala.annotation.tailrec
 import math.Ordered.orderingToOrdered // for tuple comparison
 import java.io.{File, PrintWriter}
@@ -63,7 +61,6 @@ object Main {
           case "mi"  => MI  // mutual information
           case "su"  => SU  // symmetric uncertainty
           case "mcc" => MCC // matthew's correlation coefficient
-          // case "cen" => CEN // confusion entropy
         }
         c.copy(sortMeasure = sm)
       }.text("sorting measure for forward selection (default: mi)")
@@ -403,8 +400,6 @@ class Data(table: Table, config: Config) {
       // instance is generated only here
     }
     newRows.sorted
-    //quickSort(newRows)  // destructive sort
-    //stableSort(newRows) // not destructive
   }
 
   private def makeConsistentData(rows: ArrayBuffer[Instance]): Int = {
@@ -485,12 +480,10 @@ class SortMeasures(table: Table) {
     measure(MI)(f)  = hC + hF(f) - hFC(f)
     measure(SU)(f)  = 2*measure(MI)(f) / (hC + hF(f))
 
-    // to suppress overflow
+    // to avoid overflow
     val mccDenominator = Seq(tp+fp,tp+fn,tn+fp,tn+fn).map(math.sqrt(_)).product
     measure(MCC)(f) = if (mccDenominator == 0) 0 
                       else (tp*tn-fp*fn)/mccDenominator
-    //measure(CEN)(f) = (fn+fp)*log2(nRows^2-(tp-tn)^2) / (2*nRows) - 
-    //                  (fn*log2(fn)+fp*log2(fp))/nRows
   }
 
 }
@@ -609,8 +602,6 @@ class Instance(val row: ArrayBuffer[(Int,Int)],
   def size = row.size
 
   def getVal(f: Int): Int = {
-    // assume that this part is called just when dividing the worlds
-    // that's why "pref" works
     @tailrec
     def binSearch(lo: Int, hi: Int): Int = {
       if (lo > hi) 0
