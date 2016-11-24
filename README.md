@@ -1,14 +1,15 @@
-# scwc
+# sCWC
+
 sCWC: very fast feature selection for nominal data
 
 ## Quick Start
 
 To build `scwc.jar` file in the `./bin` directory, run
-```sh
+```
 $ sbt assembly
 ```
 Command `bin/scwc` accepts a number of command line options.
-```sh
+```
 $ bin/scwc --help
 scwc 0.8.0
 Usage: scwc [options] inputfile [outputfile]
@@ -24,21 +25,21 @@ Usage: scwc [options] inputfile [outputfile]
 ```
 It requires an input file in the dense/sparse ARFF, CSV, or LIBSVM
 formats. Unless an output file is specified, it creates a new data
-file in the same format as the input file by removing the unselected
+file in the same format as the input file after removing the unselected
 features from the input file.
-```sh
+```
 $ bin/scwc -v data/sparse.arff
 ```
 In the above example, `data/sparse.out.arff` is created.
 When an output file is specified, the output format is given by
 its file extension (now `arff`, `csv`, and `libsvm` are available).
-```sh
+```
 $ bin/scwc -s su -l data/dense.arff data/dense.csv
 ```
 Also the log file `data/dense.out.log` is created by the option `-l`.
 If you want to remove the 1st column in the input file, 
 run with the option `-r 1`.
-```sh
+```
 $ scwc -v -l data/sample.csv -r 1
 ```
 

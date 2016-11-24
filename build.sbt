@@ -1,6 +1,6 @@
 scalaVersion := "2.11.8"
 
-scalacOptions ++= Seq("-unchecked","-deprecation","-feature")
+scalacOptions ++= Seq("-unchecked","-deprecation","-feature","-optimise")
 
 libraryDependencies += "com.github.scopt" %% "scopt" % "3.5.0"
 
