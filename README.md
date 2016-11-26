@@ -11,13 +11,14 @@ $ sbt assembly
 Command `bin/scwc` accepts a number of command line options.
 ```
 $ bin/scwc --help
-scwc 0.8.0
+scwc 0.8.1
 Usage: scwc [options] inputfile [outputfile]
 
   --help                  prints this usage text
   inputfile               input file in the ARFF/CSV/LIBSVM format
   outputfile              output file with extension {arff, csv, libsvm}
-  -s, --sort {mi|su|mcc}  sorting measure for forward selection (default: mi)
+  -s, --sort {mi|su|icr|mcc}  
+                          sorting measure for forward selection (default: mi)
   -v, --verbose           display selection process information
   -l, --log               output log file
   -o, --overwrite         overwrite output file
