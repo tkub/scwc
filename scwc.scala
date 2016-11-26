@@ -4,7 +4,7 @@ package jp.ac.gakushuin.cc.tk.scwc
  * sCWC: Feature Selection Algorithm CWC for sparse data set
  * 
  * @author Tetsuji Kuboyama <ori-scwc@tk.cc.gakushuin.ac.jp>
- * @version 0.8.0, 2016-11-20
+ * @version 0.8.1, 2016-11-26
  * @license http://www.apache.org/licenses/LICENSE-2.0 Apache-2.0
  */
 
@@ -17,7 +17,7 @@ import scwc._
 
 object SortMeasure extends Enumeration {
   type SortMeasure = Value // to identify SortMeasure as SortMeasure.Value
-  val MI, SU, MCC = Value
+  val MI, SU, ICR, MCC = Value
 }
 import SortMeasure._
 
@@ -40,7 +40,7 @@ case class Config(
 
 object Main {
 
-  val VERSION = "0.8.0"
+  val VERSION = "0.8.1"
 
   def main(args: Array[String]) {
 
@@ -56,10 +56,11 @@ object Main {
         c.copy(outputFileName = x)
       }.text("output file with extension {arff, csv, libsvm}")
 
-      opt[String]('s',"sort").valueName("{mi|su|mcc}").action{ (x, c) =>
+      opt[String]('s',"sort").valueName("{mi|su|icr|mcc}").action{ (x, c) =>
         val sm = x match {
           case "mi"  => MI  // mutual information
           case "su"  => SU  // symmetric uncertainty
+          case "icr" => ICR // inconsistency rate (Bayesian risk)
           case "mcc" => MCC // matthew's correlation coefficient
         }
         c.copy(sortMeasure = sm)
@@ -93,7 +94,7 @@ object Main {
   }
 
   def featureSelection(config: Config) {
-    // dataIO -> Table -> Data
+    // dataIO -> Stat -> Data
     println("Reading input file...")
     val (dataIO, timeRead) = time { new DataIO(config) }
 
@@ -106,22 +107,28 @@ object Main {
     dataIO.logging(s"# Removed indices: ${config.removeIndices}\n")
 
     println("Scanning input file...")
-    val (table, timeScan) = time { new Table(dataIO.instances) }
+    val (stat, timeScan) = time { new Stat(dataIO.instances) }
 
     println("Data preprocessing...")
-    val (data, timePreprocess) = time { new Data(table, config) }
+    val (data, timePreprocess) = time { new Data(stat, config) }
 
-    println(s"# Number of instances: ${table.nRows}")
-    if (data.rows.size < table.nRows) {
+    println(s"# Number of instances: ${stat.nRows}")
+    if (data.rows.size < stat.nRows) {
       print("# Number of instances after aggregation: ")
-      println( data.rows.size+"/"+table.nRows)
+      println( data.rows.size+"/"+stat.nRows)
     }
-    println(s"# Number of features: ${table.featureSet.size}")
-    if (data.sortedFeatures.size < table.featureSet.size) {
+    if (data.numOfPatchedInstances>0) {
+      println("# Data is NOT consistent.")
+      println("# Number of modified instances to make consistent: "+
+               data.numOfPatchedInstances)
+      println(s"# Added feature '${PatchFeature.name}'")
+    }
+    println(s"# Number of features: ${stat.featureSet.size}")
+    if (data.sortedFeatures.size < stat.featureSet.size) {
       print("# Number of features after trimming: ")
-      println(s"${data.sortedFeatures.size}/${table.featureSet.size}")
+      println(s"${data.sortedFeatures.size}/${stat.featureSet.size}")
     }
-    if ( table.nC.keys.size == 1 ) {
+    if ( stat.nC.keys.size == 1 ) {
       print("All instances have the same single class label...")
       // nothing to do. selected features = emptyset
     } else {
@@ -133,19 +140,19 @@ object Main {
       if (config.verbose)
         println(s"# Number of consistency checks: ${fs.numOfConsistencyCheck}")
       print("# Number of features selected: ")
-      println(selected.size+"/"+table.featureSet.size)
+      println(selected.size+"/"+stat.featureSet.size)
       if (config.verbose) {
         println
         println(selected.map{data.sortedFeatures(_).name}.mkString("{",",","}"))
       }
       dataIO.logging("#\n### Data stats\n")
-      dataIO.logging(s"# Number of instances: ${table.nRows}\n")
+      dataIO.logging(s"# Number of instances: ${stat.nRows}\n")
       dataIO.logging(s"# Number of instances after aggregation: ")
-      dataIO.logging(s"${data.rows.size}/${table.nRows}\n")
-      dataIO.logging(s"# Number of features: |F| = ${table.featureSet.size}\n")
+      dataIO.logging(s"${data.rows.size}/${stat.nRows}\n")
+      dataIO.logging(s"# Number of features: |F| = ${stat.featureSet.size}\n")
       dataIO.logging( "# Number of features after trimming: ")
-      dataIO.logging(s"${data.sortedFeatures.size}/${table.featureSet.size}\n")
-      dataIO.logging(s"# Number of class labels: |C| = ${table.nC.keys.size}\n")
+      dataIO.logging(s"${data.sortedFeatures.size}/${stat.featureSet.size}\n")
+      dataIO.logging(s"# Number of class labels: |C| = ${stat.nC.keys.size}\n")
       dataIO.logging(f"# H(C) = ${data.sm.hC}%.4f\n")
       dataIO.logging(s"# Data consistency: ${data.isConsistent}\n")
       dataIO.logging(s"# Number of patched instances: ${data.numOfPatchedInstances}\n")
@@ -158,16 +165,17 @@ object Main {
       dataIO.logging(f"# Feature selection time: $timeMain%10.4f msec\n")
       dataIO.logging( "#\n### Selected features\n")
       dataIO.logging( "# Number of features selected: ")
-      dataIO.logging(s"${selected.size}/${table.featureSet.size}\n")
-
-      dataIO.logging(" MI     SU     MCC   feature\n")
+      dataIO.logging(s"${selected.size}/${stat.featureSet.size}\n")
+      val measures = SortMeasure.values.toSeq
+      dataIO.logging(measures.map( s => f"$s%6s" ).mkString(" ")+
+                     " feature\n")
       for ( fi <- selected; f = data.sortedFeatures(fi) ) {
-        val vals = Seq(MI,SU,MCC).map(m => f"${data.sm(m)(f)}%6.3f").mkString(" ")
+        val vals = measures.map(m =>f"${data.sm(m)(f)}%6.3f").mkString(" ")
         dataIO.logging(vals+" "+f.name+"\n")
       }
       dataIO.loggingClose
 
-      dataIO.output(selected, table, data)
+      dataIO.output(selected, stat, data)
 
       sys.exit(0)
     }
@@ -204,7 +212,7 @@ class DataIO(config: Config) {
     if (config.log) log.close
   }
 
-  def output(selected: ListBuffer[Int], table: Table, data: Data) {
+  def output(selected: ListBuffer[Int], stat: Stat, data: Data) {
 
     def genSelectedIndices = {
       val numSelected = selected.size - (if (data.isConsistent) 0 else 1)
@@ -212,7 +220,7 @@ class DataIO(config: Config) {
       for ( i <- 0 until numSelected;
               cwcIndex = selected(i);
               attr     = data.sortedFeatures(cwcIndex) ) {
-        selectedIndices(i) = table.attr2index(attr)
+        selectedIndices(i) = stat.attr2index(attr)
       }
       val classIndex = instances.numAttributes - 1
       selectedIndices(numSelected) = classIndex
@@ -283,7 +291,7 @@ class DataIO(config: Config) {
 
 
 
-class Table(instances: weka.core.Instances) {
+class Stat(instances: weka.core.Instances) {
 
   val featureSet  = Set.empty[Symbol]
   val classLabels = ArrayBuffer.empty[Int]
@@ -361,10 +369,10 @@ class Table(instances: weka.core.Instances) {
 
 
 
-class Data(table: Table, config: Config) {
+class Data(stat: Stat, config: Config) {
 
-  val sm             = new SortMeasures(table)
-  val sortedFeatures = trimAndSortFeatures(table.featureSet, sm) // i2f
+  val sm             = new SortMeasures(stat)
+  val sortedFeatures = trimAndSortFeatures(stat.featureSet, sm) // i2f
   val f2i            = getReverseIndex(sortedFeatures)
 
   private val sortedRows    = sortEachRowByRenumFeatures(sm)
@@ -392,11 +400,11 @@ class Data(table: Table, config: Config) {
     // 3. sorting feature values (columns) by *renumbered* features
     // 4. sorting rows with lexicographical order of features
     val newRows = ArrayBuffer.empty[Instance]
-    for ( (rowF, i) <- table.rowFs.zipWithIndex ) {
+    for ( (rowF, i) <- stat.rowFs.zipWithIndex ) {
       val vals =
-        (for ( (f, v) <- rowF zip table.rowVs(i) if sm.hF(f) > 0 ) yield 
+        (for ( (f, v) <- rowF zip stat.rowVs(i) if sm.hF(f) > 0 ) yield 
           (f2i(f), v)).sortBy(_._1)  // renumbering by f2i
-      newRows += new Instance(vals, table.classLabels(i), sortedFeatures)
+      newRows += new Instance(vals, stat.classLabels(i), sortedFeatures)
       // instance is generated only here
     }
     newRows.sorted
@@ -405,7 +413,7 @@ class Data(table: Table, config: Config) {
   private def makeConsistentData(rows: ArrayBuffer[Instance]): Int = {
     // instances have been already sorted and aggregated
     val patchFeatureIndex  = sortedFeatures.size
-    val cLmax = table.nC.keys.max
+    val cLmax = stat.nC.keys.max
     var count = 0
     var prev = rows(0)
     var cl = 1
@@ -424,10 +432,8 @@ class Data(table: Table, config: Config) {
       }
     }
     if (count > 0) { // inconsistent
-      println("\n# Data is NOT consistent. Number of modified instances: "+count)
       sortedFeatures += PatchFeature // patch feature index
       f2i(PatchFeature) = patchFeatureIndex
-      println(s"# Added feature '${PatchFeature.name}' at ${patchFeatureIndex}")
     }
     count
   }
@@ -452,10 +458,11 @@ class Data(table: Table, config: Config) {
 
 
 
-class SortMeasures(table: Table) {
+class SortMeasures(s: Stat) {
 
-  val nRows = table.nRows
-  private val log  = (b: Int) => (x: Double) => if (x>0) math.log(x)/math.log(b) else 0.0
+  val nRows = s.nRows.toDouble
+  private val log  = (b: Int) => (x: Double) =>
+                     if (x>0) math.log(x)/math.log(b) else 0.0
   private val log2 = log(2)
   private val entropy = (counts: Iterable[Int]) => {
     // H = - \sum_n ( n/n_rows * log2( n/n_rows ) )
@@ -463,23 +470,26 @@ class SortMeasures(table: Table) {
     counts.map{ n => n*(log2ni - log2(n)) }.sum / nRows
   }
 
-  val hC  = entropy(table.nC.values)         // H(C)
+  val hC  = entropy(s.nC.values)         // H(C)
   val hF  = OpenHashMap.empty[Symbol,Double] // H(F)
   val hFC = OpenHashMap.empty[Symbol,Double] // H(C,F)
   val measure  = NestedMap[SortMeasure](NestedMap[Symbol](0.0))
 
   def apply(sm: SortMeasure) = measure(sm)
 
-  for (f <- table.featureSet) {
-    hF(f)  = entropy(table.nFV(f).values)
-    hFC(f) = entropy(table.nCFV.values.flatMap(_(f).values))
-    val tn = table.tn(f)
-    val fn = table.fn(f)
-    val fp = table.fp(f)
-    val tp = table.tp(f)
+  for (f <- s.featureSet) {
+    hF(f)  = entropy(s.nFV(f).values)
+    hFC(f) = entropy(s.nCFV.values.flatMap(_(f).values))
+    val tn = s.tn(f)
+    val fn = s.fn(f)
+    val fp = s.fp(f)
+    val tp = s.tp(f)
     measure(MI)(f)  = hC + hF(f) - hFC(f)
     measure(SU)(f)  = 2*measure(MI)(f) / (hC + hF(f))
-
+    // complement of ICR (Bayesian Risk)
+    measure(ICR)(f) = 1 - s.nFV(f).map{ case (v,freq) 
+                         => freq - s.nCFV.keys.map{ s.nCFV(_)(f)(v) }.max
+                       }.sum / nRows
     // to avoid overflow
     val mccDenominator = Seq(tp+fp,tp+fn,tn+fp,tn+fn).map(math.sqrt(_)).product
     measure(MCC)(f) = if (mccDenominator == 0) 0 
@@ -524,7 +534,6 @@ class FeatureSelection(data: Data, config: Config) {
 
   private def searchConsistentFront(f: Int): Int = {
     // assuming that [0, f] is consistent in each parWorld
-
     @tailrec 
     def binSearch(lo: Int, hi: Int): Int = {
       if ( lo >= hi ) 
@@ -579,7 +588,8 @@ class Instances(instances: ArrayBuffer[Instance]) {
   def isConsistentUpto(f: Int): Boolean = {
     var prev = instances(0)
     for ( i <- 1 until size; cur = instances(i) ) {
-      if (prev.classLabel != cur.classLabel && prev.prefixIsIdenticalUpto(cur, f)) 
+      if (prev.classLabel != cur.classLabel && 
+          prev.prefixIsIdenticalUpto(cur, f))
         return false
       prev = cur
     }
