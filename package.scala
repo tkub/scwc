@@ -1,6 +1,6 @@
 package jp.ac.gakushuin.cc.tk.scwc
 
-package object scwc {
+package object utils {
 
   def time[A](f: => A) = {
     System.gc

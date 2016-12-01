@@ -13,7 +13,7 @@ import scala.collection.mutable.{Set,OpenHashMap,ArrayBuffer,ListBuffer}
 import scala.annotation.tailrec
 import math.Ordered.orderingToOrdered // for tuple comparison
 import java.io.{File, PrintWriter}
-import scwc._
+import utils._
 
 object SortMeasure extends Enumeration {
   type SortMeasure = Value // to identify SortMeasure as SortMeasure.Value
@@ -280,7 +280,8 @@ class DataIO(config: Config) {
       Console.err.println(s"\nscwc: ${inputFileName}: No such file exists")
       sys.exit(1)
     }
-    if (outputFile.exists && (inputFileName == outputFileName || !config.overWrite)) {
+    if (outputFile.exists && 
+                     (inputFileName == outputFileName || !config.overWrite)) {
       Console.err.print(s"\nscwc: ${outputFileName}: output file already exists ")
       Console.err.println("(use '-o' to overwrite)")
       sys.exit(1)
@@ -391,7 +392,7 @@ class Data(stat: Stat, config: Config) {
     // 1. remove features s.t. H(F)=0 from featureSet
     // 2. return features sorted by a specific sort measure
     featureSet.filter(sm.hF(_)>0).to[ArrayBuffer].
-      sortBy(v => -(sm(config.sortMeasure)(v).abs) ) // descendant order
+      sortBy( v => -(sm(config.sortMeasure)(v).abs) ) // descendant order
   }
 
   private def sortEachRowByRenumFeatures(sm: SortMeasures): ArrayBuffer[Instance] = {
@@ -416,18 +417,15 @@ class Data(stat: Stat, config: Config) {
     val cLmax = stat.nC.keys.max
     var count = 0
     var prev = rows(0)
-    var cl = 1
 
     for (i <- 1 until rows.size; cur = rows(i)) {
-      if (prev.classLabel < cLmax && 
+      if (prev.classLabel < cLmax &&
           prev.classLabel != cur.classLabel &&
           prev.rowIsIdenticalTo(cur)
       ) {
-        cur.row += ((patchFeatureIndex, cl))
-        cl += 1
+        cur.row += ((patchFeatureIndex, cur.classLabel))
         count += 1
       } else {
-        cl = 1
         prev = cur
       }
     }
@@ -657,9 +655,9 @@ class Instance(val row: ArrayBuffer[(Int,Int)],
     @tailrec
     def cmp(i: Int): Int = i match {
       case `m` if m == n => classLabel compare other.classLabel
-      case `m`           => -1 // i == m < n
-      case `n`           =>  1 // m > n == i
-      case _             =>
+      case `m` => -1 // i == m < n
+      case `n` =>  1 // m > n == i
+      case _   =>
         row(i) compare other.row(i) match {
           case 0 => cmp(i + 1)
           case c => c
