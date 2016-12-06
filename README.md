@@ -49,3 +49,8 @@ $ scwc -v -l data/sample.csv -r 1
 * K. Shin, T. Kuboyama, T. Hashimoto, D. Shepard: Super-CWC and
   super-LCC: Super fast feature selection algorithms. Big Data 2015:
   61-67
+
+## Acknowledgements
+
+This work was partially supported by JSPS KAKENHI Grant [No.26280090](https://kaken.nii.ac.jp/en/grant/KAKENHI-PROJECT-26280090/)
+

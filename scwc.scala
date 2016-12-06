@@ -5,7 +5,11 @@ package jp.ac.gakushuin.cc.tk.scwc
  * 
  * @author Tetsuji Kuboyama <ori-scwc@tk.cc.gakushuin.ac.jp>
  * @version 0.8.1, 2016-11-26
- * @license http://www.apache.org/licenses/LICENSE-2.0 Apache-2.0
+ * 
+ * License: http://www.apache.org/licenses/LICENSE-2.0 Apache-2.0
+ * 
+ * Acknowledgements:
+ * This work was partially supported by JSPS KAKENHI Grant No. 26280090
  */
 
 import scopt.OptionParser
