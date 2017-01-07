@@ -11,7 +11,7 @@ $ sbt assembly
 Command `bin/scwc` accepts a number of command line options.
 ```
 $ bin/scwc --help
-scwc 0.8.1
+scwc 0.8.2
 Usage: scwc [options] inputfile [outputfile]
 
   --help                  prints this usage text

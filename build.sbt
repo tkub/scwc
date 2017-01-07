@@ -1,10 +1,10 @@
-scalaVersion := "2.11.8"
+scalaVersion := "2.12.1"
 
-scalacOptions ++= Seq("-unchecked","-deprecation","-feature","-optimise")
+scalacOptions ++= Seq("-unchecked","-deprecation","-feature")
 
 libraryDependencies += "com.github.scopt" %% "scopt" % "3.5.0"
 
-libraryDependencies += "nz.ac.waikato.cms.weka" % "weka-stable" % "3.8.0"
+libraryDependencies += "nz.ac.waikato.cms.weka" % "weka-stable" % "3.8.1"
 
 assemblyOutputPath in assembly := file(s"bin/${name.value}.jar")
 

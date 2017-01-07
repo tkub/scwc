@@ -4,7 +4,7 @@ package jp.ac.gakushuin.cc.tk.scwc
  * sCWC: Feature Selection Algorithm CWC for sparse data set
  * 
  * @author Tetsuji Kuboyama <ori-scwc@tk.cc.gakushuin.ac.jp>
- * @version 0.8.1, 2016-11-26
+ * @version 0.8.2, 2017-01-08
  * 
  * License: http://www.apache.org/licenses/LICENSE-2.0 Apache-2.0
  * 
@@ -44,7 +44,7 @@ case class Config(
 
 object Main {
 
-  val VERSION = "0.8.1"
+  val VERSION = "0.8.2"
 
   def main(args: Array[String]) {
 
@@ -453,7 +453,7 @@ class Data(stat: Stat, config: Config) {
         i = j
       }
     }
-    if (i == n - 1) rowsAggregated += rows(i)
+    rowsAggregated += rows(i)
     rowsAggregated
   }
 }
@@ -518,6 +518,9 @@ class FeatureSelection(data: Data, config: Config) {
         if (config.verbose) print( s"${cfront}(${parWorlds.size})" )
         cfront +=: selected
         cfront -= 1
+      } else {
+        println("Illegally Inconsistent!!")
+        sys.exit(1)
       }
     }
     if (config.verbose) print("\n...")
@@ -636,20 +639,23 @@ class Instance(val row: ArrayBuffer[(Int,Int)],
       false
 
   def prefixIsIdenticalUpto(other: Instance, f: Int): Boolean = {
-    var i = 0
-    var consistent = true
-    val imax = size min other.size
+    val m = size
+    val n = other.size
 
-    while ( i < imax && consistent && row(i)._1 <= f ) {
-      consistent = ( row(i) == other.row(i) )
-      i += 1
+    @tailrec
+    def identical(i: Int): Boolean = i match {
+      case `m` if m == n => true
+      case `m` => other.row(i)._1 > f // i == m < n
+      case `n` =>       row(i)._1 > f // m > n == i
+      case _   =>
+        val (f1, v1) = row(i)
+        val (f2, v2) = other.row(i)
+        if (f1 == f2 && f1 <= f && v1 == v2)
+          identical(i+1)
+        else
+          f1 > f && f2 > f
     }
-    if      ( size > other.size &&       row(i)._1 <= f )
-      false
-    else if ( size < other.size && other.row(i)._1 <= f )
-      false
-    else
-      consistent
+    identical(0)
   }
 
   def compare(other: Instance): Int = {
@@ -661,11 +667,16 @@ class Instance(val row: ArrayBuffer[(Int,Int)],
       case `m` if m == n => classLabel compare other.classLabel
       case `m` => -1 // i == m < n
       case `n` =>  1 // m > n == i
-      case _   =>
-        row(i) compare other.row(i) match {
-          case 0 => cmp(i + 1)
-          case c => c
-      }
+      case _   => 
+        // note that (0,1) > (1,1)       in sparse form
+        // because   (0,1) > (0,0),(1,1) in dense form
+        val (f1, v1) = row(i)
+        val (f2, v2) = other.row(i)
+        if (f1 == f2) {
+          if (v1 == v2) cmp(i+1) else v1 compare v2
+        } else {
+          f2 compare f1
+        }
     }
     cmp(0)
   }
