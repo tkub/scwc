@@ -133,7 +133,7 @@ object Main {
       println(s"${data.sortedFeatures.size}/${stat.featureSet.size}")
     }
     if ( stat.nC.keys.size == 1 ) {
-      print("All instances have the same single class label...")
+      print("All instances have the same single class label...Nothing to do")
       // nothing to do. selected features = emptyset
     } else {
       val fs = new FeatureSelection(data, config)
@@ -511,17 +511,12 @@ class FeatureSelection(data: Data, config: Config) {
     val selected = ListBuffer.empty[Int]
     var cfront = data.sortedFeatures.size - 1 
     // extract from the feature set { 0,.., cf }
-    while (cfront >= 0) {
+    while ( cfront >= 0 ) {
       cfront = searchConsistentFront( cfront )
-      if (cfront >= 0) {
-        parWorlds = divideWorldsBy( cfront )
-        if (config.verbose) print( s"${cfront}(${parWorlds.size})" )
-        cfront +=: selected
-        cfront -= 1
-      } else {
-        println("Illegally Inconsistent!!")
-        sys.exit(1)
-      }
+      parWorlds = divideWorldsBy( cfront )
+      if (config.verbose) print( s"${cfront}(${parWorlds.size})" )
+      cfront +=: selected
+      cfront -= 1
     }
     if (config.verbose) print("\n...")
     selected
@@ -534,7 +529,7 @@ class FeatureSelection(data: Data, config: Config) {
     //if (config.parallel && parWorlds.size >= 2)
     //  parWorlds.par.forall(_.isConsistentUpto(f))
     //else
-      parWorlds.forall(_.isConsistentUpto(f))
+    parWorlds.forall(_.isConsistentUpto(f))
   }
 
   private def searchConsistentFront(f: Int): Int = {
@@ -570,19 +565,18 @@ class FeatureSelection(data: Data, config: Config) {
   }
 
   private def divideWorldsBy(f: Int) = {
+
     def hasSingleClass(instances: ArrayBuffer[Instance]): Boolean = {
-      if (instances.size == 1) {
-        true
-      } else {
+      (instances.size == 1) || {
         val cl = instances(0).classLabel
-        (1 until instances.size).forall( cl == instances(_).classLabel )
+          (1 until instances.size).forall( cl == instances(_).classLabel )
       }
     }
+
     for (instances <- parWorlds; wd <- instances.divideBy(f)
       if !hasSingleClass(wd) ) yield new Instances(wd)
   }
 }
-
 
 
 class Instances(instances: ArrayBuffer[Instance]) {
@@ -685,7 +679,7 @@ class Instance(val row: ArrayBuffer[(Int,Int)],
     case other: Instance =>
       if (classLabel != other.classLabel) false
       else {
-        if (size == other.size) 
+        if (size == other.size)
           (0 until size).forall { i => row(i) == other.row(i) }
         else
           false
