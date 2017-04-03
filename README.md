@@ -4,8 +4,15 @@ sCWC: very fast feature selection for nominal data
 
 ## Quick Start
 
+Install [sbt](http://www.scala-sbt.org/release/docs/Setup.html).
+Clone or download this repository.
+```
+$ git clone https://github.com/tkub/scwc.git
+```
+
 To build `scwc.jar` file in the `./bin` directory, run
 ```
+$ cd scwc
 $ sbt assembly
 ```
 Command `bin/scwc` accepts a number of command line options.
@@ -43,6 +50,16 @@ run with the option `-r 1`.
 ```
 $ scwc -v -l data/sample.csv -r 1
 ```
+
+## Format of input files
+
+You can use not only binary values {0,1} but also any nominal values,
+for example, {a,b,c,d} available in the ARFF format.
+
+If you want to use ordinal variables, use the dummy variables to
+encode the values.  For example, values 1,2, and 3 can be encoded as
+[0,0], [1,0] and [1,1] respectively. This encoding procedure will be
+incorporated in the future version.
 
 ## Reference
 
