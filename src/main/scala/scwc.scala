@@ -174,6 +174,7 @@ object Main {
       dataIO.logging(measures.map( s => f"$s%6s" ).mkString(" ")+
                      " feature\n")
       for ( fi <- selected; f = data.sortedFeatures(fi) ) {
+      // for ( f <- stat.featureSet ) { // outpus all features
         val vals = measures.map(m =>f"${data.sm(m)(f)}%6.3f").mkString(" ")
         dataIO.logging(vals+" "+f.name+"\n")
       }
@@ -293,8 +294,6 @@ class DataIO(config: Config) {
     (inputFile, outputFile)
   }
 }
-
-
 
 class Stat(instances: weka.core.Instances) {
 

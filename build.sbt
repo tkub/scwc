@@ -1,8 +1,8 @@
-scalaVersion := "2.12.1"
+scalaVersion := "2.12.4"
 
 scalacOptions ++= Seq("-unchecked","-deprecation","-feature")
 
-libraryDependencies += "com.github.scopt" %% "scopt" % "3.5.0"
+libraryDependencies += "com.github.scopt" %% "scopt" % "3.7.0"
 
 libraryDependencies += "nz.ac.waikato.cms.weka" % "weka-stable" % "3.8.1"
 
