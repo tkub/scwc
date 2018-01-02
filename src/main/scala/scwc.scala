@@ -4,7 +4,7 @@ package jp.ac.gakushuin.cc.tk.scwc
  * sCWC: Feature Selection Algorithm CWC for sparse data set
  * 
  * @author Tetsuji Kuboyama <ori-scwc@tk.cc.gakushuin.ac.jp>
- * @version 0.8.2, 2017-01-08
+ * @version 0.8.3, 2018-01-03
  * 
  * License: http://www.apache.org/licenses/LICENSE-2.0 Apache-2.0
  * 
@@ -25,11 +25,6 @@ object SortMeasure extends Enumeration {
 }
 import SortMeasure._
 
-object Constant {
-  val PatchFeature = 'patchFeature
-}
-import Constant._
-
 case class Config(
   inputFileName:  String      = "",
   outputFileName: String      = "",
@@ -44,7 +39,7 @@ case class Config(
 
 object Main {
 
-  val VERSION = "0.8.2"
+  val VERSION = "0.8.3"
 
   def main(args: Array[String]) {
 
@@ -121,11 +116,10 @@ object Main {
       print("# Number of instances after aggregation: ")
       println( data.rows.size+"/"+stat.nRows)
     }
-    if (data.numOfPatchedInstances>0) {
+    if (data.numOfMinorInstances>0) {
       println("# Data is NOT consistent.")
-      println("# Number of modified instances to make consistent: "+
-               data.numOfPatchedInstances)
-      println(s"# Added feature '${PatchFeature.name}'")
+      println("# Number of deleted instances to make consistent: "+
+               data.numOfMinorInstances)
     }
     println(s"# Number of features: ${stat.featureSet.size}")
     if (data.sortedFeatures.size < stat.featureSet.size) {
@@ -159,7 +153,7 @@ object Main {
       dataIO.logging(s"# Number of class labels: |C| = ${stat.nC.keys.size}\n")
       dataIO.logging(f"# H(C) = ${data.sm.hC}%.4f\n")
       dataIO.logging(s"# Data consistency: ${data.isConsistent}\n")
-      dataIO.logging(s"# Number of patched instances: ${data.numOfPatchedInstances}\n")
+      dataIO.logging(s"# Number of deleted instances: ${data.numOfMinorInstances}\n")
 
       dataIO.logging( "#\n### Computation stats\n")
       dataIO.logging(s"# Number of consistency checks: ${fs.numOfConsistencyCheck}\n")
@@ -379,10 +373,10 @@ class Data(stat: Stat, config: Config) {
   val sortedFeatures = trimAndSortFeatures(stat.featureSet, sm) // i2f
   val f2i            = getReverseIndex(sortedFeatures)
 
-  private val sortedRows    = sortEachRowByRenumFeatures(sm)
-  val rows                  = aggregate(sortedRows)
-  val numOfPatchedInstances = makeConsistentData(rows) // destructive to rows
-  val isConsistent = (numOfPatchedInstances == 0)
+  private val sortedRows  = sortEachRowByRenumFeatures(sm)
+  val rows                = aggregate(sortedRows)
+  val numOfMinorInstances = makeConsistentData(rows) // destructive to rows
+  val isConsistent = (numOfMinorInstances == 0)
 
   private def getReverseIndex(features: ArrayBuffer[Symbol]) = {
     val f2i = OpenHashMap.empty[Symbol,Int]
@@ -408,34 +402,39 @@ class Data(stat: Stat, config: Config) {
       val vals =
         (for ( (f, v) <- rowF zip stat.rowVs(i) if sm.hF(f) > 0 ) yield 
           (f2i(f), v)).sortBy(_._1)  // renumbering by f2i
-      newRows += new Instance(vals, stat.classLabels(i), sortedFeatures)
+      newRows += new Instance(vals, stat.classLabels(i)) //, sortedFeatures)
       // instance is generated only here
     }
-    newRows.sorted
+    newRows.sorted // ** to be revised by Radix Sort **
   }
 
   private def makeConsistentData(rows: ArrayBuffer[Instance]): Int = {
-    // instances have been already sorted and aggregated
-    val patchFeatureIndex  = sortedFeatures.size
-    val cLmax = stat.nC.keys.max
+    // instances have been already SORTED and AGGREGATED
+    val labelMax = stat.nC.keys.max
+    val minorInstances = ArrayBuffer[Int]()
     var count = 0
-    var prev = rows(0)
+    var j = 0
+    var prev = rows(j)
 
     for (i <- 1 until rows.size; cur = rows(i)) {
-      if (prev.classLabel < cLmax &&
+      if (prev.classLabel < labelMax &&
           prev.classLabel != cur.classLabel &&
-          prev.rowIsIdenticalTo(cur)
+          prev.vals == cur.vals
       ) {
-        cur.row += ((patchFeatureIndex, cur.classLabel))
+        // 'cur' is inconsistent with 'prev'
+        if (prev.freq < cur.freq) {
+          minorInstances += j
+          prev = cur; j = i
+        } else {
+          minorInstances += i
+        }
         count += 1
       } else {
         prev = cur
+        j = i
       }
     }
-    if (count > 0) { // inconsistent
-      sortedFeatures += PatchFeature // patch feature index
-      f2i(PatchFeature) = patchFeatureIndex
-    }
+    minorInstances.foreach { i => rows.remove(i) }
     count
   }
 
@@ -471,7 +470,7 @@ class SortMeasures(s: Stat) {
     counts.map{ n => n*(log2ni - log2(n)) }.sum / nRows
   }
 
-  val hC  = entropy(s.nC.values)         // H(C)
+  val hC  = entropy(s.nC.values)             // H(C)
   val hF  = OpenHashMap.empty[Symbol,Double] // H(F)
   val hFC = OpenHashMap.empty[Symbol,Double] // H(C,F)
   val measure  = NestedMap[SortMeasure](NestedMap[Symbol](0.0))
@@ -493,7 +492,7 @@ class SortMeasures(s: Stat) {
                        }.sum / nRows
     // to avoid overflow
     val mccDenominator = Seq(tp+fp,tp+fn,tn+fp,tn+fn).map(math.sqrt(_)).product
-    measure(MCC)(f) = if (mccDenominator == 0) 0 
+    measure(MCC)(f) = if (mccDenominator == 0) 0
                       else (tp*tn-fp*fn)/mccDenominator
   }
 
@@ -602,12 +601,12 @@ class Instances(instances: ArrayBuffer[Instance]) {
 
 
 
-class Instance(val row: ArrayBuffer[(Int,Int)], 
-               val classLabel: Int,
-               features: ArrayBuffer[Symbol]) extends Ordered[Instance] {
+class Instance(val vals: ArrayBuffer[(Int,Int)], 
+               val classLabel: Int) extends Ordered[Instance] {
+  // vals = ArrayBuffer((#f1, v1), ..., (#f_n, v_n))
   var freq: Int = 1
 
-  def size = row.size
+  def size = vals.size
 
   def getVal(f: Int): Int = {
     @tailrec
@@ -615,8 +614,8 @@ class Instance(val row: ArrayBuffer[(Int,Int)],
       if (lo > hi) 0
       else {
         val mid = lo + (hi - lo) / 2
-        row(mid)._1 match {
-          case `f`         => row(mid)._2
+        vals(mid)._1 match {
+          case `f`         => vals(mid)._2
           case k if k <= f => binSearch(mid + 1, hi)
           case _           => binSearch(lo, mid - 1)
         }
@@ -625,12 +624,6 @@ class Instance(val row: ArrayBuffer[(Int,Int)],
     binSearch(0, (size - 1) min f)
   }
 
-  def rowIsIdenticalTo(other: Instance): Boolean =
-    if (size == other.size) 
-      ( 0 until size ).forall { i => row(i) == other.row(i) }
-    else 
-      false
-
   def prefixIsIdenticalUpto(other: Instance, f: Int): Boolean = {
     val m = size
     val n = other.size
@@ -638,11 +631,11 @@ class Instance(val row: ArrayBuffer[(Int,Int)],
     @tailrec
     def identical(i: Int): Boolean = i match {
       case `m` if m == n => true
-      case `m` => other.row(i)._1 > f // i == m < n
-      case `n` =>       row(i)._1 > f // m > n == i
+      case `m` => other.vals(i)._1 > f // i == m < n
+      case `n` =>       vals(i)._1 > f // m > n == i
       case _   =>
-        val (f1, v1) = row(i)
-        val (f2, v2) = other.row(i)
+        val (f1, v1) = vals(i)
+        val (f2, v2) = other.vals(i)
         if (f1 == f2 && f1 <= f && v1 == v2)
           identical(i+1)
         else
@@ -663,8 +656,8 @@ class Instance(val row: ArrayBuffer[(Int,Int)],
       case _   => 
         // note that (0,1) > (1,1)       in sparse form
         // because   (0,1) > (0,0),(1,1) in dense form
-        val (f1, v1) = row(i)
-        val (f2, v2) = other.row(i)
+        val (f1, v1) = vals(i)
+        val (f2, v2) = other.vals(i)
         if (f1 == f2) {
           if (v1 == v2) cmp(i+1) else v1 compare v2
         } else {
@@ -677,18 +670,15 @@ class Instance(val row: ArrayBuffer[(Int,Int)],
   override def equals(other: Any): Boolean = other match {
     case other: Instance =>
       if (classLabel != other.classLabel) false
-      else {
-        if (size == other.size)
-          (0 until size).forall { i => row(i) == other.row(i) }
-        else
-          false
-      }
+      else
+        vals == other.vals
     case _ => false
   }
 
   override def toString: String = 
-    classLabel+" "+row.map{ case (f,v) => f+":"+v }.mkString(" ")+" ("+freq+")"
+    classLabel+" "+vals.map{ case (f,v) => f+":"+v }.mkString(" ")+" ("+freq+")"
 
   def p: String =
-    classLabel+" "+row.map{ case (f,v) => features(f)+":"+v }.mkString(" ")+" ("+freq+")"
+    // classLabel+" "+vals.map{ case (f,v) => features(f)+":"+v }.mkString(" ")+" ("+freq+")"
+    classLabel+" "+vals.map{ case (f,v) => f+":"+v }.mkString(" ")+" ("+freq+")"
 }
