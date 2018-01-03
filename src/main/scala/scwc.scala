@@ -412,7 +412,7 @@ class Data(stat: Stat, config: Config) {
     // instances have been already SORTED and AGGREGATED
     val labelMax = stat.nC.keys.max
     val minorInstances = ArrayBuffer[Int]()
-    var count = 0
+    var numOfMinorInstances = 0
     var j = 0
     var prev = rows(j)
 
@@ -424,18 +424,19 @@ class Data(stat: Stat, config: Config) {
         // 'cur' is inconsistent with 'prev'
         if (prev.freq < cur.freq) {
           minorInstances += j
+          numOfMinorInstances += prev.freq
           prev = cur; j = i
         } else {
           minorInstances += i
+          numOfMinorInstances += cur.freq
         }
-        count += 1
       } else {
         prev = cur
         j = i
       }
     }
     minorInstances.foreach { i => rows.remove(i) }
-    count
+    numOfMinorInstances
   }
 
   private def aggregate(rows: ArrayBuffer[Instance]) = {
